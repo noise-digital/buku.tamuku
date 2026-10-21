@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wedding Guest Book Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{--c:#b08d57;--bg:#fbf8f1;--t:#3b3329}
+*{box-sizing:border-box}body{margin:0;font-family:Lato,sans-serif;background:var(--bg);color:var(--t)}
+h1,h2,h3{font-family:'Playfair Display',serif;font-weight:500}
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;background-size:cover;background-position:center;animation:f .8s}
+.card{background:rgba(255,255,255,.92);border-radius:20px;padding:28px 22px;max-width:440px;width:100%;box-shadow:0 10px 40px #0002}
+.photo{width:180px;height:180px;border-radius:50%;object-fit:cover;border:4px solid var(--c);margin-bottom:12px;background:#eee}
+.btn{background:var(--c);color:#fff;border:0;border-radius:12px;padding:14px 22px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;margin-top:10px}
+.btn.o{background:#fff;color:var(--c);border:1px solid var(--c)}.btn.s{width:auto;padding:8px 12px;font-size:.85rem;margin:2px}.btn:disabled{opacity:.6}
+input,textarea,select{width:100%;padding:12px;border:1px solid #d9cfbd;border-radius:10px;font:inherit;margin:4px 0 12px}
+label{font-size:.85rem;font-weight:700;display:block;text-align:left}.err{color:#b3261e;font-size:.9rem}
+.orn{color:var(--c);letter-spacing:6px}@keyframes f{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.adm{max-width:1000px;margin:auto;padding:16px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.wc{background:#fff;border-radius:14px;padding:14px;box-shadow:0 2px 10px #0001}.wc img{width:100%;height:140px;object-fit:cover;border-radius:10px;background:#eee}
+.st{display:flex;gap:10px;flex-wrap:wrap}.st div{background:#fff;border-radius:12px;padding:12px 16px;flex:1;min-width:130px}.st b{font-size:1.6rem;color:var(--c)}
+table{width:100%;border-collapse:collapse;font-size:.85rem;background:#fff}td,th{padding:6px;border-bottom:1px solid #eee;text-align:left}.tw{overflow-x:auto}
+.bar{height:10px;background:var(--c);border-radius:5px}.modal{position:fixed;inset:0;background:#0008;display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto}
+.modal>div{background:#fff;border-radius:16px;padding:18px;max-width:440px;width:100%;max-height:95vh;overflow:auto}
+@media print{.np{display:none!important}}
+</style></head><body><div id="app"><p style="text-align:center;margin-top:40vh">Memuat…</p></div>
+<script>
+const API='GANTI_DENGAN_URL_WEB_APP_ANDA'; // URL /exec dari Apps Script
+const app=document.getElementById('app'), q=new URLSearchParams(location.search);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function call(action,d={}){
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:sessionStorage.tok,...d})});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Terjadi kesalahan'); return j.data;
+}
+const msg=(t)=>app.innerHTML=`<div class="hero"><div class="card"><h2>Oops</h2><p>${esc(t)}</p></div></div>`;
+const hero=c=>`<div class="hero" style="${c.background_image_url?`background-image:linear-gradient(#fff9,#fffc),url('${esc(c.background_image_url)}')`:''}"><div class="card">`;
+const photo=c=>c.hero_image_url?`<img class="photo" src="${esc(c.hero_image_url)}" alt="Foto">`:'';
+
+/* ===== ALUR TAMU ===== */
+async function guest(){
+  let cfg; try{cfg=await call('config',{w:q.get('w')})}catch(e){return msg(e.message)}
+  document.documentElement.style.setProperty('--c',cfg.theme_color||'#b08d57'); document.title=cfg.couple_display_name;
+  const landing=()=>app.innerHTML=hero(cfg)+`${photo(cfg)}<p class="orn">✦ The Wedding of ✦</p><h1>${esc(cfg.couple_display_name)}</h1><p>${esc(cfg.welcome_text)}</p><p>Silakan isi buku tamu untuk melakukan konfirmasi kehadiran.</p><button class="btn" id="go">Isi Buku Tamu</button></div></div>`,
+  form=()=>{app.innerHTML=hero(cfg)+`<h2>Buku Tamu</h2><form id="f" novalidate>
+   <label>Nama tamu *</label><input id="n" maxlength="100"><label>Alamat *</label><input id="a" maxlength="200">
+   <label>Teman kerja / instansi / perusahaan</label><input id="w" maxlength="100"><label>Jumlah orang yang hadir</label><input id="c" type="number" min="1" max="20" value="1">
+   <label>Ucapan atau doa</label><textarea id="s" rows="3" maxlength="500"></textarea><p class="err" id="e"></p>
+   <button class="btn" id="b">Kirim dan Konfirmasi</button><button type="button" class="btn o" id="bk">Kembali</button></form></div></div>`;
+   document.getElementById('bk').onclick=landing;
+   document.getElementById('f').onsubmit=async ev=>{ev.preventDefault();const g=i=>document.getElementById(i).value.trim(),b=document.getElementById('b'),e=document.getElementById('e');
+    if(!g('n'))return e.textContent='Nama wajib diisi.'; if(!g('a'))return e.textContent='Alamat wajib diisi.';
+    const cnt=parseInt(g('c')||'1',10); if(!(cnt>=1&&cnt<=20))return e.textContent='Jumlah orang harus 1-20.';
+    b.disabled=true;b.textContent='Mengirim…';e.textContent='';
+    try{const r=await call('submit',{w:cfg.wedding_id,name:g('n'),address:g('a'),workplace:g('w'),count:cnt,wishes:g('s')});ok(r.guest_name)}
+    catch(x){e.textContent='Gagal menyimpan: '+x.message;b.disabled=false;b.textContent='Kirim dan Konfirmasi'}}},
+  ok=n=>{app.innerHTML=hero(cfg)+`${photo(cfg)}<p class="orn">✦</p><h2>SELAMAT DATANG</h2><p>Halo, Bapak/Ibu <b>${esc(n)}</b></p><p>${esc(cfg.success_message)}</p><p>Salam hangat,</p><h3>${esc(cfg.couple_display_name)}</h3></div></div>`};
+  landing(); document.getElementById('go').onclick=form;
+}
+
+/* ===== ADMIN ===== */
+let W=[],G=[],page=0;
+function login(m=''){app.innerHTML=`<div class="hero"><div class="card"><h2>Admin</h2><input id="pw" type="password" placeholder="Password"><p class="err">${esc(m)}</p><button class="btn" id="l">Masuk</button></div></div>`;
+ document.getElementById('l').onclick=async()=>{try{const r=await call('login',{password:document.getElementById('pw').value});sessionStorage.tok=r.token;load()}catch(e){login(e.message)}}}
+async function load(){try{[W,G]=await Promise.all([call('weddings'),call('guests')]);dash()}catch(e){delete sessionStorage.tok;login(e.message)}}
+const url=id=>location.origin+location.pathname+'?w='+id;
+function dash(){
+  const today=new Date().toDateString(),cnt={};W.forEach(w=>cnt[w.wedding_id]=0);G.forEach(g=>cnt[g.wedding_id]=(cnt[g.wedding_id]||0)+1);
+  const max=Math.max(1,...Object.values(cnt));
+  app.innerHTML=`<div class="adm"><div class="np"><h2>Dashboard Admin <button class="btn s o" id="lo">Keluar</button></h2>
+  <div class="st"><div>Total tamu<br><b>${G.length}</b></div><div>Orang hadir<br><b>${G.reduce((a,g)=>a+Number(g.attendance_count||0),0)}</b></div><div>Hari ini<br><b>${G.filter(g=>new Date(g.created_at).toDateString()===today).length}</b></div></div>
+  <h3>Wedding</h3><div class="grid">${W.map(w=>`<div class="wc"><img src="${esc(w.hero_image_url)}" alt=""><h3>${esc(w.couple_display_name)}</h3><small>${w.wedding_id} · ${w.is_active===true?'Aktif':'Nonaktif'} · ${cnt[w.wedding_id]} tamu</small>
+   <div class="bar" style="width:${cnt[w.wedding_id]/max*100}%;margin:6px 0"></div>
+   <button class="btn s" data-e="${w.wedding_id}">Edit</button><a class="btn s o" style="text-decoration:none;display:inline-block" target="_blank" href="${url(w.wedding_id)}">Preview</a><button class="btn s o" data-q="${w.wedding_id}">QR Code</button></div>`).join('')}</div></div>
+  <h3>Data Buku Tamu</h3><div class="np"><input id="sr" placeholder="Cari nama…" style="width:55%;display:inline-block"><select id="fw" style="width:40%;display:inline-block"><option value="">Semua</option>${W.map(w=>`<option>${w.wedding_id}</option>`)}</select>
+  <button class="btn s" id="csv">Ekspor CSV</button><button class="btn s o" onclick="print()">Cetak</button></div><div class="tw" id="tb"></div><div class="np" id="pg"></div></div>`;
+  document.getElementById('lo').onclick=()=>{delete sessionStorage.tok;login()};
+  document.getElementById('sr').oninput=document.getElementById('fw').onchange=()=>{page=0;tbl()};
+  document.getElementById('csv').onclick=csv;
+  app.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>edit(b.dataset.e));app.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>qr(b.dataset.q));tbl();
+}
+const flt=()=>{const s=document.getElementById('sr').value.toLowerCase(),f=document.getElementById('fw').value;return G.filter(g=>(!f||g.wedding_id===f)&&String(g.guest_name).toLowerCase().includes(s)).reverse()};
+function tbl(){const L=flt(),P=15,pages=Math.max(1,Math.ceil(L.length/P));page=Math.min(page,pages-1);const nm=id=>(W.find(w=>w.wedding_id===id)||{}).couple_display_name;
+ document.getElementById('tb').innerHTML=L.length?`<table><tr><th>No</th><th>Waktu</th><th>ID</th><th>Wedding</th><th>Nama</th><th>Alamat</th><th>Instansi</th><th>Org</th><th>Ucapan</th><th class="np"></th></tr>${L.slice(page*P,page*P+P).map((g,i)=>`<tr><td>${page*P+i+1}</td><td>${new Date(g.created_at).toLocaleString('id-ID')}</td><td>${g.wedding_id}</td><td>${esc(nm(g.wedding_id))}</td><td>${esc(g.guest_name)}</td><td>${esc(g.guest_address)}</td><td>${esc(g.workplace)}</td><td>${g.attendance_count}</td><td>${esc(g.wishes)}</td><td class="np"><button class="btn s o" data-d="${g.guest_id}">Hapus</button></td></tr>`).join('')}</table>`:'<p>Belum ada data.</p>';
+ document.getElementById('pg').innerHTML=`<button class="btn s o" id="pv">‹</button> ${page+1}/${pages} <button class="btn s o" id="nx">›</button>`;
+ document.getElementById('pv').onclick=()=>{page=Math.max(0,page-1);tbl()};document.getElementById('nx').onclick=()=>{page=Math.min(pages-1,page+1);tbl()};
+ document.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{if(!confirm('Hapus data tamu ini?'))return;try{await call('deleteGuest',{guest_id:b.dataset.d});G=G.filter(g=>g.guest_id!==b.dataset.d);dash()}catch(e){alert(e.message)}})}
+function csv(){const c=v=>'"'+String(v??'').replace(/"/g,'""')+'"',H=['created_at','wedding_id','guest_name','guest_address','workplace','attendance_count','wishes'];
+ const t=[H.join(',')].concat(flt().map(g=>H.map(h=>c(g[h])).join(','))).join('\n'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+t],{type:'text/csv'}));a.download='tamu.csv';a.click()}
+function modal(h){const m=document.createElement('div');m.className='modal np';m.innerHTML='<div>'+h+'<button class="btn o" id="x">Tutup</button></div>';document.body.appendChild(m);m.querySelector('#x').onclick=()=>m.remove();return m}
+function qr(id){const m=modal(`<h3>QR ${id}</h3><div id="q" style="text-align:center"></div><small style="word-break:break-all">${url(id)}</small><button class="btn" id="dl">Unduh PNG</button><button class="btn o" id="pr">Cetak</button>`);
+ new QRCode(m.querySelector('#q'),{text:url(id),width:256,height:256,correctLevel:QRCode.CorrectLevel.H});
+ m.querySelector('#dl').onclick=()=>{const a=document.createElement('a');a.href=m.querySelector('canvas').toDataURL('image/png');a.download='QR-'+id+'.png';a.click()};
+ m.querySelector('#pr').onclick=()=>{const w=open('');w.document.write(`<body style="text-align:center"><h2>${esc(id)}</h2><img src="${m.querySelector('canvas').toDataURL()}"><script>onload=()=>print()<\/script>`)}}
+const F=[['groom_name','Nama mempelai pria'],['bride_name','Nama mempelai wanita'],['couple_display_name','Nama tampilan (mis. Andi & Siti)'],['wedding_date','Tanggal acara','date'],['welcome_text','Teks sambutan'],['success_message','Ucapan setelah konfirmasi'],['theme_color','Warna tema','color']];
+function edit(id){const w=W.find(x=>x.wedding_id===id);
+ const m=modal(`<h3>Edit ${id}</h3>${F.map(([k,l,t])=>`<label>${l}</label><input data-k="${k}" type="${t||'text'}" value="${esc(String(w[k]||'').slice(0,t==='date'?10:999))}">`).join('')}
+ <label><input type="checkbox" id="ac" style="width:auto" ${w.is_active===true?'checked':''}> Aktif</label>
+ <label>Foto wedding (JPG/PNG/WebP)</label><input type="file" accept="image/*" id="h"><label>Foto background</label><input type="file" accept="image/*" id="bg"><p class="err" id="e"></p><button class="btn" id="sv">Simpan</button>`);
+ m.querySelector('#sv').onclick=async function(){this.disabled=true;const e=m.querySelector('#e');try{const d={is_active:m.querySelector('#ac').checked};
+  m.querySelectorAll('[data-k]').forEach(i=>d[i.dataset.k]=i.value);
+  for(const [el,f] of [['#h','hero_image_url'],['#bg','background_image_url']]){const file=m.querySelector(el).files[0];if(file)d[f]=(await call('upload',{wedding_id:id,...await shrink(file)})).url}
+  await call('saveWedding',{wedding_id:id,data:d});m.remove();load()}catch(x){e.textContent=x.message;this.disabled=false}}}
+function shrink(file){return new Promise((res,rej)=>{if(!/^image\/(jpeg|png|webp)$/.test(file.type))return rej(new Error('Tipe file harus JPG/PNG/WebP.'));
+ const i=new Image();i.onload=()=>{const s=Math.min(1,1200/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=i.width*s;c.height=i.height*s;c.getContext('2d').drawImage(i,0,0,c.width,c.height);
+  res({mime:'image/jpeg',data:c.toDataURL('image/jpeg',.82).split(',')[1]})};i.onerror=()=>rej(new Error('Gambar tidak valid.'));i.src=URL.createObjectURL(file)})}
+
+if(API.startsWith('GANTI'))msg('Isi konstanta API di index.html dengan URL Web App Apps Script.');
+else if(location.hash==='#admin')sessionStorage.tok?load():login();
+else if(q.get('w'))guest();else msg('QR Code tidak valid. Silakan pindai ulang QR Code undangan.');
+</script></body></html>
